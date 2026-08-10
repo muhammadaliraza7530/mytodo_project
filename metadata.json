@@ -1,0 +1,8 @@
+{
+  "name": "TaskFlow - Next.js Supabase Todo App",
+  "description": "Full-stack Task Manager converted to Next.js 15 App Router with TypeScript and Supabase integration.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
