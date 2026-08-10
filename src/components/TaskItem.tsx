@@ -69,18 +69,18 @@ export function TaskItem({
   const getPriorityBadge = (p: Priority) => {
     switch (p) {
       case 'high':
-        return <span className="bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 text-xs px-2 py-0.5 rounded-md font-medium border border-red-200 dark:border-red-800/50">High</span>;
+        return <span className="bg-red-50 dark:bg-red-900/30 text-red-700 dark:text-red-400 text-xs px-2 py-0.5 rounded-md font-semibold border border-red-200 dark:border-red-800/50">High</span>;
       case 'medium':
-        return <span className="bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 text-xs px-2 py-0.5 rounded-md font-medium border border-amber-200 dark:border-amber-800/50">Medium</span>;
+        return <span className="bg-amber-50 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 text-xs px-2 py-0.5 rounded-md font-semibold border border-amber-200 dark:border-amber-800/50">Medium</span>;
       case 'low':
-        return <span className="bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 text-xs px-2 py-0.5 rounded-md font-medium border border-blue-200 dark:border-blue-800/50">Low</span>;
+        return <span className="bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 text-xs px-2 py-0.5 rounded-md font-semibold border border-blue-200 dark:border-blue-800/50">Low</span>;
     }
   };
 
   const getCategoryBadge = (c: Category) => {
     return (
-      <span className="bg-gray-100 dark:bg-dark-600 text-gray-600 dark:text-gray-300 text-xs px-2 py-0.5 rounded-md font-medium flex items-center gap-1">
-        <Tag className="w-3 h-3 text-primary-500" /> {c}
+      <span className="bg-slate-100/80 dark:bg-dark-600 text-slate-700 dark:text-gray-300 text-xs px-2 py-0.5 rounded-md font-medium border border-slate-200/80 dark:border-dark-500 flex items-center gap-1">
+        <Tag className="w-3 h-3 text-emerald-600 dark:text-primary-500" /> {c}
       </span>
     );
   };
@@ -224,8 +224,8 @@ export function TaskItem({
           </div>
         </form>
       ) : (
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          <div className="flex items-start gap-3 flex-grow">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 min-w-0 w-full">
+          <div className="flex items-start gap-3 flex-grow min-w-0">
             {/* Drag Handle */}
             <div
               className="mt-1 cursor-grab active:cursor-grabbing text-gray-300 dark:text-gray-600 hover:text-primary-500 dark:hover:text-primary-400 transition-colors p-0.5"
@@ -252,10 +252,10 @@ export function TaskItem({
               {task.completed && <Check className="w-3.5 h-3.5 stroke-[3]" />}
             </button>
 
-            <div className="flex-grow space-y-1.5">
-              <div className="flex items-center gap-2 flex-wrap">
+            <div className="flex-grow space-y-1.5 min-w-0">
+              <div className="flex items-center gap-2 flex-wrap min-w-0">
                 <p
-                  className={`text-sm font-semibold leading-snug transition-all ${
+                  className={`text-sm font-semibold leading-snug transition-all break-words min-w-0 ${
                     task.completed
                       ? 'line-through text-gray-400 dark:text-gray-500'
                       : 'text-gray-800 dark:text-gray-100'

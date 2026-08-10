@@ -166,22 +166,22 @@ export function TaskCompletionChart({ tasks }: TaskCompletionChartProps) {
   }
 
   return (
-    <div className="bg-white dark:bg-dark-700 rounded-2xl p-5 sm:p-6 shadow-sm border border-gray-100 dark:border-dark-600 mb-8 transition-all hover:shadow-md">
+    <div className="bg-white dark:bg-dark-700 rounded-2xl p-5 sm:p-6 shadow-xs border border-slate-200/80 dark:border-dark-600 mb-8 transition-all hover:shadow-sm">
       {/* Header & Controls */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-gray-100 dark:border-dark-600">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-slate-100 dark:border-dark-600">
         <div>
           <div className="flex items-center gap-2">
-            <div className="p-2 rounded-xl bg-primary-50 dark:bg-primary-950/40 text-primary-600 dark:text-primary-400 border border-primary-100 dark:border-primary-900/40">
+            <div className="p-2 rounded-xl bg-emerald-50 dark:bg-primary-950/40 text-emerald-600 dark:text-primary-400 border border-emerald-100 dark:border-primary-900/40">
               <TrendingUp className="w-4 h-4" />
             </div>
             <div>
-              <h2 className="text-base font-bold text-gray-900 dark:text-white flex items-center gap-2">
+              <h2 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
                 7-Day Task Completion History
-                <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 border border-emerald-200/60 dark:border-emerald-800/40">
+                <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800/40">
                   {stats.totalCompleted} done
                 </span>
               </h2>
-              <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+              <p className="text-xs text-slate-500 dark:text-gray-400 mt-0.5 font-medium">
                 Visualizing daily completion velocity and task momentum over the last week
               </p>
             </div>
@@ -189,14 +189,14 @@ export function TaskCompletionChart({ tasks }: TaskCompletionChartProps) {
         </div>
 
         {/* View Switcher Tabs */}
-        <div className="flex items-center gap-1.5 self-start sm:self-auto bg-gray-100 dark:bg-dark-600 p-1 rounded-xl">
+        <div className="flex items-center gap-1.5 self-start sm:self-auto bg-slate-100 dark:bg-dark-600 p-1 rounded-xl">
           <button
             type="button"
             onClick={() => setViewType('bar')}
             className={`flex items-center gap-1 text-xs px-2.5 py-1.5 rounded-lg font-semibold transition-all ${
               viewType === 'bar'
-                ? 'bg-white dark:bg-dark-700 text-primary-600 dark:text-primary-400 shadow-xs'
-                : 'text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white'
+                ? 'bg-white dark:bg-dark-700 text-emerald-600 dark:text-primary-400 shadow-2xs'
+                : 'text-slate-600 dark:text-gray-300 hover:text-slate-900 dark:hover:text-white'
             }`}
             title="Daily Bars"
           >
@@ -209,8 +209,8 @@ export function TaskCompletionChart({ tasks }: TaskCompletionChartProps) {
             onClick={() => setViewType('trend')}
             className={`flex items-center gap-1 text-xs px-2.5 py-1.5 rounded-lg font-semibold transition-all ${
               viewType === 'trend'
-                ? 'bg-white dark:bg-dark-700 text-primary-600 dark:text-primary-400 shadow-xs'
-                : 'text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white'
+                ? 'bg-white dark:bg-dark-700 text-emerald-600 dark:text-primary-400 shadow-2xs'
+                : 'text-slate-600 dark:text-gray-300 hover:text-slate-900 dark:hover:text-white'
             }`}
             title="Completion Trend Curve"
           >
@@ -223,8 +223,8 @@ export function TaskCompletionChart({ tasks }: TaskCompletionChartProps) {
             onClick={() => setViewType('categories')}
             className={`flex items-center gap-1 text-xs px-2.5 py-1.5 rounded-lg font-semibold transition-all ${
               viewType === 'categories'
-                ? 'bg-white dark:bg-dark-700 text-primary-600 dark:text-primary-400 shadow-xs'
-                : 'text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white'
+                ? 'bg-white dark:bg-dark-700 text-emerald-600 dark:text-primary-400 shadow-2xs'
+                : 'text-slate-600 dark:text-gray-300 hover:text-slate-900 dark:hover:text-white'
             }`}
             title="Category Mix"
           >
@@ -236,47 +236,47 @@ export function TaskCompletionChart({ tasks }: TaskCompletionChartProps) {
 
       {/* 7-Day Key Insights Metrics */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 my-4">
-        <div className="p-3 bg-gray-50 dark:bg-dark-800/60 rounded-xl border border-gray-100 dark:border-dark-600">
-          <span className="text-[11px] font-medium text-gray-500 dark:text-gray-400 flex items-center gap-1">
-            <CheckCircle2 className="w-3 h-3 text-emerald-500" /> Total Completed
+        <div className="p-3 bg-slate-50 dark:bg-dark-800/60 rounded-xl border border-slate-200/80 dark:border-dark-600">
+          <span className="text-[11px] font-semibold text-slate-500 dark:text-gray-400 flex items-center gap-1">
+            <CheckCircle2 className="w-3 h-3 text-emerald-600 dark:text-emerald-500" /> Total Completed
           </span>
-          <p className="text-xl font-extrabold text-gray-800 dark:text-gray-100 mt-0.5">
+          <p className="text-xl font-extrabold text-slate-900 dark:text-gray-100 mt-0.5">
             {stats.totalCompleted}{' '}
-            <span className="text-[11px] font-normal text-gray-400">tasks</span>
+            <span className="text-[11px] font-normal text-slate-400 dark:text-gray-400">tasks</span>
           </p>
         </div>
 
-        <div className="p-3 bg-gray-50 dark:bg-dark-800/60 rounded-xl border border-gray-100 dark:border-dark-600">
-          <span className="text-[11px] font-medium text-gray-500 dark:text-gray-400 flex items-center gap-1">
-            <Sparkles className="w-3 h-3 text-primary-500" /> Daily Average
+        <div className="p-3 bg-slate-50 dark:bg-dark-800/60 rounded-xl border border-slate-200/80 dark:border-dark-600">
+          <span className="text-[11px] font-semibold text-slate-500 dark:text-gray-400 flex items-center gap-1">
+            <Sparkles className="w-3 h-3 text-emerald-600 dark:text-primary-500" /> Daily Average
           </span>
-          <p className="text-xl font-extrabold text-gray-800 dark:text-gray-100 mt-0.5">
+          <p className="text-xl font-extrabold text-slate-900 dark:text-gray-100 mt-0.5">
             {stats.dailyAverage}{' '}
-            <span className="text-[11px] font-normal text-gray-400">/ day</span>
+            <span className="text-[11px] font-normal text-slate-400 dark:text-gray-400">/ day</span>
           </p>
         </div>
 
-        <div className="p-3 bg-gray-50 dark:bg-dark-800/60 rounded-xl border border-gray-100 dark:border-dark-600">
-          <span className="text-[11px] font-medium text-gray-500 dark:text-gray-400 flex items-center gap-1">
-            <Award className="w-3 h-3 text-amber-500" /> Peak Day
+        <div className="p-3 bg-slate-50 dark:bg-dark-800/60 rounded-xl border border-slate-200/80 dark:border-dark-600">
+          <span className="text-[11px] font-semibold text-slate-500 dark:text-gray-400 flex items-center gap-1">
+            <Award className="w-3 h-3 text-amber-600 dark:text-amber-500" /> Peak Day
           </span>
-          <p className="text-xl font-extrabold text-gray-800 dark:text-gray-100 mt-0.5 truncate">
+          <p className="text-xl font-extrabold text-slate-900 dark:text-gray-100 mt-0.5 truncate">
             {stats.peakDayName !== 'None' ? stats.peakDayName : '—'}{' '}
             {stats.maxDayCount > 0 && (
-              <span className="text-[11px] font-semibold text-emerald-500">
+              <span className="text-[11px] font-bold text-emerald-600 dark:text-emerald-500">
                 ({stats.maxDayCount})
               </span>
             )}
           </p>
         </div>
 
-        <div className="p-3 bg-gray-50 dark:bg-dark-800/60 rounded-xl border border-gray-100 dark:border-dark-600">
-          <span className="text-[11px] font-medium text-gray-500 dark:text-gray-400 flex items-center gap-1">
-            <Flame className="w-3 h-3 text-orange-500" /> Active Days
+        <div className="p-3 bg-slate-50 dark:bg-dark-800/60 rounded-xl border border-slate-200/80 dark:border-dark-600">
+          <span className="text-[11px] font-semibold text-slate-500 dark:text-gray-400 flex items-center gap-1">
+            <Flame className="w-3 h-3 text-amber-500 dark:text-orange-500" /> Active Days
           </span>
-          <p className="text-xl font-extrabold text-gray-800 dark:text-gray-100 mt-0.5">
+          <p className="text-xl font-extrabold text-slate-900 dark:text-gray-100 mt-0.5">
             {stats.activeDaysCount}{' '}
-            <span className="text-[11px] font-normal text-gray-400">of 7 days</span>
+            <span className="text-[11px] font-normal text-slate-400 dark:text-gray-400">of 7 days</span>
           </p>
         </div>
       </div>

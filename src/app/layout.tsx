@@ -13,7 +13,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" className="dark">
-      <body className="bg-gradient-to-br from-gray-50 to-gray-100 dark:from-dark-900 dark:to-dark-800 text-gray-800 dark:text-gray-200 min-h-screen transition-colors duration-300 font-sans antialiased">
+      <body className="bg-slate-50/90 dark:bg-gradient-to-br dark:from-dark-900 dark:to-dark-800 text-slate-800 dark:text-gray-200 min-h-screen transition-colors duration-300 font-sans antialiased">
         {children}
       </body>
     </html>

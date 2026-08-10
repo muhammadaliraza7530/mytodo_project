@@ -100,30 +100,31 @@ export function TaskForm({ onAddTask }: TaskFormProps) {
   const hasExtraConfig = recurrence !== 'none' || startTime || endTime || dueDate;
 
   return (
-    <div className="bg-white dark:bg-dark-700 rounded-2xl shadow-sm hover:shadow-md p-5 mb-8 border border-gray-100 dark:border-dark-600 transition-all duration-200">
+    <div className="bg-white dark:bg-dark-700 rounded-2xl shadow-xs hover:shadow-sm p-3.5 sm:p-5 mb-8 border border-slate-200/80 dark:border-dark-600 transition-all duration-200">
       <form onSubmit={handleSubmit}>
-        <div className="flex gap-3 items-center">
+        <div className="flex gap-2 sm:gap-3 items-center">
           <input
+            id="task-input"
             type="text"
             value={text}
             onChange={(e) => setText(e.target.value)}
             onFocus={() => setShowOptions(true)}
             placeholder="What needs to be done today?"
-            className="flex-grow px-5 py-3.5 bg-gray-50 dark:bg-dark-600/80 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500/50 border border-gray-200/50 dark:border-dark-500 text-gray-800 dark:text-white placeholder-gray-400 text-sm shadow-inner transition-all"
+            className="flex-grow px-3.5 sm:px-5 py-3 sm:py-3.5 bg-slate-50 dark:bg-dark-600/80 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/40 border border-slate-200 dark:border-dark-500 text-slate-900 dark:text-white placeholder-slate-400 text-xs sm:text-sm shadow-inner transition-all min-w-0"
             required
           />
           <button
             type="button"
             onClick={() => setShowOptions(!showOptions)}
-            className={`p-3.5 rounded-xl transition-colors flex items-center gap-1.5 text-xs font-semibold ${
+            className={`p-3 sm:p-3.5 rounded-xl transition-colors flex items-center gap-1.5 text-xs font-semibold flex-shrink-0 ${
               hasExtraConfig
-                ? 'bg-primary-500/10 text-primary-600 dark:text-primary-400 border border-primary-500/30'
-                : 'bg-gray-100 dark:bg-dark-600 hover:bg-gray-200 dark:hover:bg-dark-500 text-gray-600 dark:text-gray-300'
+                ? 'bg-emerald-50 dark:bg-primary-500/10 text-emerald-700 dark:text-primary-400 border border-emerald-200 dark:border-primary-500/30'
+                : 'bg-slate-100 dark:bg-dark-600 hover:bg-slate-200 dark:hover:bg-dark-500 text-slate-700 dark:text-gray-300'
             }`}
             title="Toggle scheduling & extra options"
           >
             {startTime && (
-              <span className="flex items-center gap-1 text-primary-600 dark:text-primary-400">
+              <span className="flex items-center gap-1 text-emerald-700 dark:text-primary-400">
                 <Clock className="w-3.5 h-3.5" />
                 <span className="hidden sm:inline">{startTime}</span>
               </span>
@@ -138,9 +139,11 @@ export function TaskForm({ onAddTask }: TaskFormProps) {
           </button>
           <button
             type="submit"
-            className="bg-primary-500 hover:bg-primary-600 active:scale-95 text-white px-6 py-3.5 rounded-xl transition-all duration-200 flex items-center gap-2 font-semibold text-sm shadow-sm hover:shadow-md whitespace-nowrap"
+            className="bg-emerald-600 hover:bg-emerald-700 dark:bg-primary-500 dark:hover:bg-primary-600 active:scale-95 text-white px-3.5 sm:px-6 py-3 sm:py-3.5 rounded-xl transition-all duration-200 flex items-center gap-1.5 sm:gap-2 font-semibold text-xs sm:text-sm shadow-xs hover:shadow-sm whitespace-nowrap flex-shrink-0"
           >
-            <Plus className="w-4 h-4" /> Add Task
+            <Plus className="w-4 h-4" />
+            <span className="hidden sm:inline">Add Task</span>
+            <span className="sm:hidden">Add</span>
           </button>
         </div>
 

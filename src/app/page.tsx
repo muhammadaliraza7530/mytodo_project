@@ -16,16 +16,37 @@ import {
   Flame,
   X,
   Clock,
+  Bell,
+  BellRing,
+  BellOff,
+  Volume2,
+  VolumeX,
+  Keyboard,
 } from 'lucide-react';
 import { Task, Priority, Category, FilterStatus, Recurrence } from '@/types/todo';
+import dynamic from 'next/dynamic';
 import { TaskStats } from '@/components/TaskStats';
-import { TaskCompletionChart } from '@/components/TaskCompletionChart';
+const TaskCompletionChart = dynamic(
+  () => import('@/components/TaskCompletionChart').then((mod) => mod.TaskCompletionChart),
+  { ssr: false }
+);
 import { TaskForm } from '@/components/TaskForm';
 import { TaskItem } from '@/components/TaskItem';
+import { CategoryTabBar } from '@/components/CategoryTabBar';
 import { SupabaseConfigModal } from '@/components/SupabaseConfigModal';
+import { StartNotificationModal } from '@/components/StartNotificationModal';
+import { NotificationSettingsModal } from '@/components/NotificationSettingsModal';
+import { KeyboardShortcutsModal } from '@/components/KeyboardShortcutsModal';
 import { getSupabaseClient, getSupabaseConfig } from '@/lib/supabase';
 import { createRenewedTask, formatRecurrence } from '@/lib/recurrence';
-import { calculateDuration } from '@/lib/timeUtils';
+import { calculateDuration, formatTimeString } from '@/lib/timeUtils';
+import {
+  playNotificationChime,
+  requestBrowserNotificationPermission,
+  sendBrowserNotification,
+  getTodayDateString,
+  getTasksDueForStartTime,
+} from '@/lib/notificationUtils';
 import confetti from 'canvas-confetti';
 
 export default function HomePage() {
@@ -46,10 +67,126 @@ export default function HomePage() {
     streak: number;
   } | null>(null);
 
-  // Initialize theme
+  // Start Time Notification States
+  const [permission, setPermission] = useState<NotificationPermission>('default');
+  const [soundEnabled, setSoundEnabled] = useState(true);
+  const [notifiedKeys, setNotifiedKeys] = useState<Set<string>>(new Set());
+  const [snoozedMap, setSnoozedMap] = useState<Record<string, number>>({});
+  const [activeAlert, setActiveAlert] = useState<Task | null>(null);
+  const [alertQueue, setAlertQueue] = useState<Task[]>([]);
+  const [isNotifSettingsOpen, setIsNotifSettingsOpen] = useState(false);
+  const [isShortcutsOpen, setIsShortcutsOpen] = useState(false);
+  const [notificationLog, setNotificationLog] = useState<
+    { id: string; taskText: string; startTime: string; timestamp: string }[]
+  >([]);
+
+  // Global Keyboard Shortcuts (N: New Task, /: Search, Esc: Close/Blur)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Escape key handles closing modals and blurring search / task input
+      if (e.key === 'Escape') {
+        if (isShortcutsOpen) {
+          setIsShortcutsOpen(false);
+          return;
+        }
+        if (isConfigOpen) {
+          setIsConfigOpen(false);
+          return;
+        }
+        if (isNotifSettingsOpen) {
+          setIsNotifSettingsOpen(false);
+          return;
+        }
+        if (activeAlert) {
+          if (alertQueue.length > 0) {
+            const [next, ...rest] = alertQueue;
+            setActiveAlert(next);
+            setAlertQueue(rest);
+          } else {
+            setActiveAlert(null);
+          }
+          return;
+        }
+        // Blur active input / select / textarea elements
+        const activeElem = document.activeElement as HTMLElement | null;
+        if (
+          activeElem &&
+          (activeElem.tagName === 'INPUT' ||
+            activeElem.tagName === 'TEXTAREA' ||
+            activeElem.tagName === 'SELECT')
+        ) {
+          activeElem.blur();
+        }
+        if (searchQuery) {
+          setSearchQuery('');
+        }
+        return;
+      }
+
+      // Do not trigger N or / shortcuts if user is currently typing in an editable field
+      const target = e.target as HTMLElement | null;
+      if (
+        target &&
+        (target.tagName === 'INPUT' ||
+          target.tagName === 'TEXTAREA' ||
+          target.tagName === 'SELECT' ||
+          target.isContentEditable)
+      ) {
+        return;
+      }
+
+      // 'N' or 'n' -> Focus main task input
+      if (e.key === 'n' || e.key === 'N') {
+        e.preventDefault();
+        const taskInput = document.getElementById('task-input') as HTMLInputElement | null;
+        if (taskInput) {
+          taskInput.focus();
+        }
+      }
+
+      // '/' -> Focus search input bar
+      if (e.key === '/') {
+        e.preventDefault();
+        const searchInput = document.getElementById('search-task-input') as HTMLInputElement | null;
+        if (searchInput) {
+          searchInput.focus();
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [
+    isShortcutsOpen,
+    isConfigOpen,
+    isNotifSettingsOpen,
+    activeAlert,
+    alertQueue,
+    searchQuery,
+  ]);
+
+  // Initialize theme, notification permission & settings
   useEffect(() => {
     const isDark = document.documentElement.classList.contains('dark');
     setDarkMode(isDark);
+
+    if (typeof window !== 'undefined' && 'Notification' in window) {
+      setPermission(Notification.permission);
+    }
+
+    const savedSound = localStorage.getItem('taskflow_sound_enabled');
+    if (savedSound !== null) {
+      setSoundEnabled(savedSound === 'true');
+    }
+
+    const savedKeys = localStorage.getItem('taskflow_notified_keys');
+    if (savedKeys) {
+      try {
+        setNotifiedKeys(new Set(JSON.parse(savedKeys)));
+      } catch (e) {
+        console.warn('Error reading notified keys:', e);
+      }
+    }
   }, []);
 
   const toggleTheme = () => {
@@ -64,15 +201,137 @@ export default function HomePage() {
     }
   };
 
-  // Auto-dismiss renewal notification
+  // Monitor Task Start Times Every 5 Seconds
   useEffect(() => {
-    if (renewalAlert) {
-      const timer = setTimeout(() => {
-        setRenewalAlert(null);
-      }, 6000);
-      return () => clearTimeout(timer);
+    if (isLoading || tasks.length === 0) return;
+
+    const checkTaskStartTimes = () => {
+      const dueTasks = getTasksDueForStartTime(tasks, notifiedKeys, snoozedMap);
+      if (dueTasks.length === 0) return;
+
+      dueTasks.forEach((task) => {
+        const todayStr = getTodayDateString();
+        const key = `${task.id}_${todayStr}_${task.start_time}`;
+
+        // Register as notified
+        setNotifiedKeys((prev) => {
+          const updated = new Set(prev);
+          updated.add(key);
+          try {
+            localStorage.setItem('taskflow_notified_keys', JSON.stringify(Array.from(updated)));
+          } catch (e) {
+            console.warn('Could not save notified keys:', e);
+          }
+          return updated;
+        });
+
+        // Play chime audio tone
+        if (soundEnabled) {
+          playNotificationChime();
+        }
+
+        // Native browser notification
+        sendBrowserNotification(
+          `🔔 Start Time Reached: ${task.text}`,
+          `Scheduled start time (${formatTimeString(task.start_time)}${
+            task.end_time ? ' - ' + formatTimeString(task.end_time) : ''
+          }) reached! Category: ${task.category}`
+        );
+
+        // Add to history log
+        setNotificationLog((prev) => [
+          {
+            id: `log_${Date.now()}_${Math.random()}`,
+            taskText: task.text,
+            startTime: formatTimeString(task.start_time),
+            timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          },
+          ...prev,
+        ]);
+
+        // Trigger active on-screen alert banner/modal
+        setActiveAlert((current) => {
+          if (!current) {
+            return task;
+          } else {
+            setAlertQueue((q) => [...q, task]);
+            return current;
+          }
+        });
+      });
+    };
+
+    checkTaskStartTimes();
+    const interval = setInterval(checkTaskStartTimes, 5000);
+    return () => clearInterval(interval);
+  }, [tasks, notifiedKeys, snoozedMap, soundEnabled, isLoading]);
+
+  // Handlers for Notification Alerts
+  const handleDismissAlert = () => {
+    if (alertQueue.length > 0) {
+      const [next, ...rest] = alertQueue;
+      setActiveAlert(next);
+      setAlertQueue(rest);
+    } else {
+      setActiveAlert(null);
     }
-  }, [renewalAlert]);
+  };
+
+  const handleCompleteAlertTask = (taskId: string) => {
+    handleToggleComplete(taskId);
+    handleDismissAlert();
+  };
+
+  const handleSnoozeAlertTask = (taskId: string) => {
+    setSnoozedMap((prev) => ({
+      ...prev,
+      [taskId]: Date.now() + 5 * 60 * 1000, // 5 minutes snooze
+    }));
+    handleDismissAlert();
+  };
+
+  const handleRequestPermission = async () => {
+    const perm = await requestBrowserNotificationPermission();
+    setPermission(perm);
+  };
+
+  const handleToggleSound = () => {
+    const next = !soundEnabled;
+    setSoundEnabled(next);
+    localStorage.setItem('taskflow_sound_enabled', String(next));
+    if (next) {
+      playNotificationChime();
+    }
+  };
+
+  const handleTestNotification = () => {
+    if (soundEnabled) {
+      playNotificationChime();
+    }
+
+    sendBrowserNotification(
+      '🔔 Test Start Time Alert',
+      'TaskFlow start time notification system is working perfectly!'
+    );
+
+    const now = new Date();
+    const currH = String(now.getHours()).padStart(2, '0');
+    const currM = String(now.getMinutes()).padStart(2, '0');
+    const endH = String((now.getHours() + 1) % 24).padStart(2, '0');
+
+    const testTask: Task = {
+      id: `test_${Date.now()}`,
+      text: 'Sample Task: Team Sync & High-Priority Project Review',
+      completed: false,
+      priority: 'high',
+      category: 'Work',
+      created_at: new Date().toISOString(),
+      start_time: `${currH}:${currM}`,
+      end_time: `${endH}:${currM}`,
+    };
+
+    setActiveAlert(testTask);
+  };
 
   // Load Tasks from Supabase or Local Storage
   const loadTasks = useCallback(async () => {
@@ -510,64 +769,92 @@ export default function HomePage() {
   });
 
   return (
-    <main className="container mx-auto px-4 py-8 max-w-4xl">
+    <main className="container mx-auto px-3 sm:px-4 py-6 sm:py-8 max-w-4xl w-full min-w-0 overflow-x-hidden">
       {/* Header */}
-      <header className="mb-10 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-        <div>
-          <div className="flex items-center gap-3">
-            <h1 className="text-4xl font-extrabold tracking-tight text-primary-500 dark:text-primary-400 glow-text flex items-center gap-2">
-              TaskFlow <Sparkles className="w-7 h-7 text-emerald-400" />
+      <header className="mb-6 sm:mb-10 w-full min-w-0">
+        <div className="flex items-center justify-between gap-3 w-full">
+          <div className="flex items-center gap-2 sm:gap-3 flex-wrap min-w-0">
+            <h1 className="text-2xl sm:text-4xl font-extrabold tracking-tight text-emerald-600 dark:text-primary-400 glow-text flex items-center gap-2">
+              TaskFlow <Sparkles className="w-5 h-5 sm:w-7 sm:h-7 text-emerald-500 dark:text-emerald-400" />
             </h1>
-            <span className="bg-primary-500/10 dark:bg-primary-400/20 text-primary-600 dark:text-primary-300 border border-primary-500/20 text-xs px-2.5 py-1 rounded-full font-semibold">
-              Next.js 15 + Recurring Tasks
+            <span className="bg-emerald-50 dark:bg-primary-400/20 text-emerald-700 dark:text-primary-300 border border-emerald-200 dark:border-primary-500/20 text-[10px] sm:text-xs px-2.5 py-0.5 sm:py-1 rounded-full font-bold whitespace-nowrap">
+              Next.js 15
             </span>
           </div>
-          <p className="text-gray-500 dark:text-gray-400 text-sm mt-1">
-            Organize daily routines, habits, and projects with automated recurrence
-          </p>
+
+          {/* Top Right Theme Toggle */}
+          <button
+            onClick={toggleTheme}
+            className="p-2.5 sm:p-3 rounded-xl bg-white dark:bg-dark-700 text-slate-700 dark:text-gray-200 hover:bg-slate-100 dark:hover:bg-dark-600 transition-all shadow-2xs border border-slate-200/80 dark:border-dark-600 flex-shrink-0"
+            title="Toggle Theme"
+          >
+            {darkMode ? (
+              <Sun className="w-4 h-4 sm:w-5 sm:h-5 text-amber-400" />
+            ) : (
+              <Moon className="w-4 h-4 sm:w-5 sm:h-5 text-slate-700" />
+            )}
+          </button>
         </div>
 
-        <div className="flex items-center gap-3">
+        <p className="text-slate-500 dark:text-gray-400 text-xs sm:text-sm mt-1 sm:mt-1.5 font-medium">
+          Organize daily routines, habits, and projects with automated recurrence
+        </p>
+
+        {/* Action Toolbar */}
+        <div className="mt-3.5 grid grid-cols-2 sm:flex sm:flex-wrap sm:items-center gap-2 w-full max-w-full">
+          {/* Keyboard Shortcuts Guide Button */}
+          <button
+            onClick={() => setIsShortcutsOpen(true)}
+            className="flex items-center justify-center gap-1.5 text-xs px-3 py-2 rounded-xl bg-white dark:bg-dark-700 hover:bg-slate-50 dark:hover:bg-dark-600 border border-slate-200/80 dark:border-dark-600 text-slate-700 dark:text-gray-200 transition-all font-semibold shadow-2xs whitespace-nowrap w-full sm:w-auto"
+            title="Keyboard Shortcuts"
+          >
+            <Keyboard className="w-3.5 h-3.5 text-emerald-600 dark:text-primary-500 flex-shrink-0" />
+            <span>Shortcuts</span>
+            <kbd className="hidden md:inline px-1.5 py-0.5 text-[10px] bg-slate-100 dark:bg-dark-600 border border-slate-300 dark:border-dark-500 rounded font-mono font-bold text-slate-500 dark:text-gray-400">
+              ?
+            </kbd>
+          </button>
+
+          {/* Start Time Alerts Button */}
+          <button
+            onClick={() => setIsNotifSettingsOpen(true)}
+            className="flex items-center justify-center gap-1.5 text-xs px-3 py-2 rounded-xl bg-white dark:bg-dark-700 hover:bg-slate-50 dark:hover:bg-dark-600 border border-slate-200/80 dark:border-dark-600 text-slate-700 dark:text-gray-200 transition-all font-semibold shadow-2xs relative whitespace-nowrap w-full sm:w-auto"
+            title="Start Time Notification Settings"
+          >
+            <Bell className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-500 flex-shrink-0" />
+            <span>Alerts</span>
+            {permission === 'granted' && (
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse flex-shrink-0" />
+            )}
+          </button>
+
           {/* Export CSV Button */}
           <button
             onClick={handleExportCSV}
             disabled={tasks.length === 0}
-            className="flex items-center gap-2 text-xs px-3.5 py-2 rounded-xl bg-white dark:bg-dark-700 hover:bg-gray-100 dark:hover:bg-dark-600 disabled:opacity-40 disabled:cursor-not-allowed border border-gray-200/60 dark:border-dark-600 text-gray-700 dark:text-gray-200 transition-all font-medium shadow-sm"
+            className="flex items-center justify-center gap-1.5 text-xs px-3 py-2 rounded-xl bg-white dark:bg-dark-700 hover:bg-slate-50 dark:hover:bg-dark-600 disabled:opacity-40 disabled:cursor-not-allowed border border-slate-200/80 dark:border-dark-600 text-slate-700 dark:text-gray-200 transition-all font-semibold shadow-2xs whitespace-nowrap w-full sm:w-auto"
             title="Export tasks as CSV"
           >
-            <Download className="w-3.5 h-3.5 text-primary-500" />
-            <span className="hidden sm:inline">Export CSV</span>
+            <Download className="w-3.5 h-3.5 text-emerald-600 dark:text-primary-500 flex-shrink-0" />
+            <span>Export CSV</span>
           </button>
 
           {/* Supabase Status Pill */}
           <button
             onClick={() => setIsConfigOpen(true)}
-            className={`flex items-center gap-2 text-xs px-3.5 py-2 rounded-xl border transition-all font-medium ${
+            className={`flex items-center justify-center gap-1.5 text-xs px-3 py-2 rounded-xl border transition-all font-semibold whitespace-nowrap w-full sm:w-auto ${
               isConnectedToSupabase
-                ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/20'
-                : 'bg-amber-500/10 border-amber-500/30 text-amber-600 dark:text-amber-400 hover:bg-amber-500/20'
+                ? 'bg-emerald-50 dark:bg-emerald-500/10 border-emerald-300 dark:border-emerald-500/30 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-100 dark:hover:bg-emerald-500/20'
+                : 'bg-amber-50 dark:bg-amber-500/10 border-amber-300 dark:border-amber-500/30 text-amber-700 dark:text-amber-400 hover:bg-amber-100 dark:hover:bg-amber-500/20'
             }`}
           >
             <span
-              className={`w-2 h-2 rounded-full ${
+              className={`w-2 h-2 rounded-full flex-shrink-0 ${
                 isConnectedToSupabase ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500'
               }`}
             />
-            <Database className="w-3.5 h-3.5" />
-            {isConnectedToSupabase ? 'Supabase Connected' : 'Connect Supabase'}
-          </button>
-
-          {/* Theme Toggle */}
-          <button
-            onClick={toggleTheme}
-            className="p-3 rounded-xl bg-white dark:bg-dark-700 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-dark-600 transition-all shadow-md hover:shadow-lg border border-gray-200/60 dark:border-dark-600"
-            title="Toggle Theme"
-          >
-            {darkMode ? (
-              <Sun className="w-5 h-5 text-amber-400" />
-            ) : (
-              <Moon className="w-5 h-5 text-slate-700" />
-            )}
+            <Database className="w-3.5 h-3.5 flex-shrink-0" />
+            <span className="truncate">{isConnectedToSupabase ? 'Supabase' : 'Connect Supabase'}</span>
           </button>
         </div>
       </header>
@@ -611,30 +898,44 @@ export default function HomePage() {
       <TaskForm onAddTask={handleAddTask} />
 
       {/* Search & Filters Toolbar */}
-      <div className="bg-white dark:bg-dark-700 rounded-2xl p-4 shadow-sm mb-6 border border-gray-100 dark:border-dark-600 space-y-3">
+      <div className="bg-white dark:bg-dark-700 rounded-2xl p-4 shadow-xs mb-6 border border-slate-200/80 dark:border-dark-600 space-y-3">
         <div className="flex flex-col sm:flex-row gap-3 items-center justify-between">
           {/* Search Bar */}
-          <div className="relative w-full sm:w-72">
-            <Search className="w-4 h-4 absolute left-3.5 top-1/2 transform -translate-y-1/2 text-gray-400" />
+          <div className="relative w-full sm:w-72 flex items-center">
+            <Search className="w-4 h-4 absolute left-3.5 top-1/2 transform -translate-y-1/2 text-slate-400 dark:text-gray-400 pointer-events-none" />
             <input
+              id="search-task-input"
               type="text"
               placeholder="Search tasks..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-9 pr-3 py-2 bg-gray-50 dark:bg-dark-600/80 rounded-xl text-xs text-gray-800 dark:text-gray-200 border border-gray-200/80 dark:border-dark-500 focus:outline-none focus:ring-2 focus:ring-primary-500/50"
+              className="w-full pl-9 pr-14 py-2 bg-slate-50 dark:bg-dark-600/80 rounded-xl text-xs text-slate-900 dark:text-gray-200 border border-slate-200 dark:border-dark-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/40 transition-colors"
             />
+            {searchQuery ? (
+              <button
+                onClick={() => setSearchQuery('')}
+                className="absolute right-2.5 top-1/2 transform -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-gray-200 p-0.5 rounded-full hover:bg-slate-200 dark:hover:bg-dark-500"
+                title="Clear search (Esc)"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            ) : (
+              <kbd className="absolute right-3 top-1/2 transform -translate-y-1/2 px-1.5 py-0.5 text-[10px] font-mono font-bold bg-slate-200/70 dark:bg-dark-500 text-slate-500 dark:text-gray-400 rounded pointer-events-none">
+                /
+              </kbd>
+            )}
           </div>
 
           {/* Status Tabs */}
-          <div className="flex gap-1 bg-gray-100 dark:bg-dark-600/90 p-1 rounded-xl w-full sm:w-auto justify-center flex-wrap">
+          <div className="flex gap-1 bg-slate-100 dark:bg-dark-600/90 p-1 rounded-xl w-full sm:w-auto overflow-x-auto scrollbar-none flex-nowrap sm:flex-wrap">
             {(['all', 'pending', 'completed', 'recurring', 'timed'] as FilterStatus[]).map((st) => (
               <button
                 key={st}
                 onClick={() => setFilter(st)}
-                className={`px-3 py-1.5 rounded-lg text-xs font-semibold capitalize transition-all flex items-center gap-1 ${
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold capitalize transition-all flex items-center gap-1 whitespace-nowrap flex-shrink-0 ${
                   filter === st
-                    ? 'bg-primary-500 text-white shadow-xs'
-                    : 'text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white'
+                    ? 'bg-emerald-600 dark:bg-primary-500 text-white shadow-xs'
+                    : 'text-slate-600 dark:text-gray-300 hover:text-slate-900 dark:hover:text-white'
                 }`}
               >
                 {st === 'recurring' && <Repeat className="w-3 h-3" />}
@@ -646,9 +947,9 @@ export default function HomePage() {
         </div>
 
         {/* Secondary Category / Priority Filter */}
-        <div className="flex flex-wrap items-center gap-2.5 pt-2.5 border-t border-gray-100 dark:border-dark-600 text-xs">
-          <span className="text-gray-400 dark:text-gray-400 flex items-center gap-1 font-semibold text-[11px] uppercase tracking-wider">
-            <Filter className="w-3.5 h-3.5 text-primary-500" /> Filter:
+        <div className="flex flex-wrap items-center gap-2.5 pt-2.5 border-t border-slate-100 dark:border-dark-600 text-xs">
+          <span className="text-slate-500 dark:text-gray-400 flex items-center gap-1 font-semibold text-[11px] uppercase tracking-wider">
+            <Filter className="w-3.5 h-3.5 text-emerald-600 dark:text-primary-500" /> Filter:
           </span>
 
           <select
@@ -691,6 +992,13 @@ export default function HomePage() {
           )}
         </div>
       </div>
+
+      {/* Category Horizontal Scroll Tab Bar */}
+      <CategoryTabBar
+        activeCategory={categoryFilter}
+        onSelectCategory={setCategoryFilter}
+        tasks={tasks}
+      />
 
       {/* Task List */}
       <div className="bg-white dark:bg-dark-700 rounded-2xl shadow-sm overflow-hidden border border-gray-100 dark:border-dark-600 transition-all">
@@ -766,6 +1074,33 @@ export default function HomePage() {
         isOpen={isConfigOpen}
         onClose={() => setIsConfigOpen(false)}
         onSaved={loadTasks}
+      />
+
+      {/* Start Time Reached Alert Modal */}
+      <StartNotificationModal
+        task={activeAlert}
+        onComplete={handleCompleteAlertTask}
+        onSnooze={handleSnoozeAlertTask}
+        onDismiss={handleDismissAlert}
+      />
+
+      {/* Start Time Notification Settings & Test Modal */}
+      <NotificationSettingsModal
+        isOpen={isNotifSettingsOpen}
+        onClose={() => setIsNotifSettingsOpen(false)}
+        permission={permission}
+        onRequestPermission={handleRequestPermission}
+        soundEnabled={soundEnabled}
+        onToggleSound={handleToggleSound}
+        onTestNotification={handleTestNotification}
+        tasks={tasks}
+        notificationLog={notificationLog}
+      />
+
+      {/* Keyboard Shortcuts Guide Modal */}
+      <KeyboardShortcutsModal
+        isOpen={isShortcutsOpen}
+        onClose={() => setIsShortcutsOpen(false)}
       />
     </main>
   );
