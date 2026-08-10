@@ -46,11 +46,25 @@ CREATE TABLE IF NOT EXISTS public.tasks (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     text TEXT NOT NULL,
     completed BOOLEAN DEFAULT false,
+    completed_at TIMESTAMPTZ,
     priority VARCHAR(20) DEFAULT 'medium',
     category VARCHAR(50) DEFAULT 'General',
     created_at TIMESTAMPTZ DEFAULT NOW(),
-    due_date DATE
+    due_date DATE,
+    start_time VARCHAR(10),
+    end_time VARCHAR(10),
+    recurrence VARCHAR(20) DEFAULT 'none',
+    streak INT DEFAULT 0,
+    last_renewed_at TIMESTAMPTZ
 );
+
+-- If you have an existing tasks table, run this migration:
+-- ALTER TABLE public.tasks ADD COLUMN IF NOT EXISTS completed_at TIMESTAMPTZ;
+-- ALTER TABLE public.tasks ADD COLUMN IF NOT EXISTS start_time VARCHAR(10);
+-- ALTER TABLE public.tasks ADD COLUMN IF NOT EXISTS end_time VARCHAR(10);
+-- ALTER TABLE public.tasks ADD COLUMN IF NOT EXISTS recurrence VARCHAR(20) DEFAULT 'none';
+-- ALTER TABLE public.tasks ADD COLUMN IF NOT EXISTS streak INT DEFAULT 0;
+-- ALTER TABLE public.tasks ADD COLUMN IF NOT EXISTS last_renewed_at TIMESTAMPTZ;
 
 -- Enable Row Level Security (RLS) or grant public access for demo
 ALTER TABLE public.tasks ENABLE ROW LEVEL SECURITY;

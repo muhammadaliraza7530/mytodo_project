@@ -12,13 +12,20 @@ import {
   CheckCircle2,
   RefreshCw,
   Sparkles,
+  Repeat,
+  Flame,
+  X,
+  Clock,
 } from 'lucide-react';
-import { Task, Priority, Category, FilterStatus } from '@/types/todo';
+import { Task, Priority, Category, FilterStatus, Recurrence } from '@/types/todo';
 import { TaskStats } from '@/components/TaskStats';
+import { TaskCompletionChart } from '@/components/TaskCompletionChart';
 import { TaskForm } from '@/components/TaskForm';
 import { TaskItem } from '@/components/TaskItem';
 import { SupabaseConfigModal } from '@/components/SupabaseConfigModal';
 import { getSupabaseClient, getSupabaseConfig } from '@/lib/supabase';
+import { createRenewedTask, formatRecurrence } from '@/lib/recurrence';
+import { calculateDuration } from '@/lib/timeUtils';
 import confetti from 'canvas-confetti';
 
 export default function HomePage() {
@@ -32,6 +39,12 @@ export default function HomePage() {
   const [isConnectedToSupabase, setIsConnectedToSupabase] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
+  const [renewalAlert, setRenewalAlert] = useState<{
+    text: string;
+    nextDue: string;
+    recurrence: Recurrence;
+    streak: number;
+  } | null>(null);
 
   // Initialize theme
   useEffect(() => {
@@ -50,6 +63,16 @@ export default function HomePage() {
       localStorage.setItem('theme', 'light');
     }
   };
+
+  // Auto-dismiss renewal notification
+  useEffect(() => {
+    if (renewalAlert) {
+      const timer = setTimeout(() => {
+        setRenewalAlert(null);
+      }, 6000);
+      return () => clearTimeout(timer);
+    }
+  }, [renewalAlert]);
 
   // Load Tasks from Supabase or Local Storage
   const loadTasks = useCallback(async () => {
@@ -85,15 +108,110 @@ export default function HomePage() {
         setTasks([]);
       }
     } else {
-      // Default sample task
+      const now = new Date();
+      const getPastIso = (daysAgo: number, hours = 10, mins = 0) => {
+        const d = new Date(now);
+        d.setDate(now.getDate() - daysAgo);
+        d.setHours(hours, mins, 0, 0);
+        return d.toISOString();
+      };
+      const today = now.toISOString().split('T')[0];
+
+      // Default sample tasks highlighting timing, recurring features, and 7-day completion history
       setTasks([
         {
           id: '1',
-          text: 'Welcome to TaskFlow Next.js 15 & Supabase!',
+          text: 'Welcome to TaskFlow with Start/End Times & Auto-Renewal!',
           completed: false,
           priority: 'high',
           category: 'General',
           created_at: new Date().toISOString(),
+          recurrence: 'none',
+          start_time: '08:30',
+          end_time: '09:00',
+        },
+        {
+          id: '2',
+          text: 'Daily morning workout & hydration routine',
+          completed: false,
+          priority: 'medium',
+          category: 'Health',
+          due_date: today,
+          start_time: '07:00',
+          end_time: '08:00',
+          recurrence: 'daily',
+          streak: 3,
+          created_at: new Date().toISOString(),
+        },
+        {
+          id: '3',
+          text: 'Weekly team sprint review and planning session',
+          completed: false,
+          priority: 'high',
+          category: 'Work',
+          due_date: today,
+          start_time: '14:00',
+          end_time: '15:30',
+          recurrence: 'weekly',
+          streak: 1,
+          created_at: new Date().toISOString(),
+        },
+        {
+          id: '4',
+          text: 'Q3 budget audit & financial forecast review',
+          completed: true,
+          completed_at: getPastIso(1, 16, 30),
+          priority: 'high',
+          category: 'Finance',
+          created_at: getPastIso(2, 9, 0),
+          start_time: '15:00',
+          end_time: '16:30',
+        },
+        {
+          id: '5',
+          text: 'Design system token review & dark mode audit',
+          completed: true,
+          completed_at: getPastIso(2, 11, 30),
+          priority: 'medium',
+          category: 'Work',
+          created_at: getPastIso(3, 9, 30),
+          start_time: '10:30',
+          end_time: '11:30',
+        },
+        {
+          id: '6',
+          text: '30-minute interval cardio & core workout',
+          completed: true,
+          completed_at: getPastIso(3, 8, 0),
+          priority: 'low',
+          category: 'Health',
+          created_at: getPastIso(4, 7, 0),
+          start_time: '07:30',
+          end_time: '08:00',
+          recurrence: 'daily',
+          streak: 2,
+        },
+        {
+          id: '7',
+          text: 'Weekly grocery run & meal planning',
+          completed: true,
+          completed_at: getPastIso(4, 18, 0),
+          priority: 'medium',
+          category: 'Personal',
+          created_at: getPastIso(5, 12, 0),
+          start_time: '17:00',
+          end_time: '18:00',
+        },
+        {
+          id: '8',
+          text: 'Patch urgent security dependency update',
+          completed: true,
+          completed_at: getPastIso(5, 14, 15),
+          priority: 'high',
+          category: 'Urgent',
+          created_at: getPastIso(5, 13, 0),
+          start_time: '13:30',
+          end_time: '14:15',
         },
       ]);
     }
@@ -116,16 +234,23 @@ export default function HomePage() {
     text: string,
     priority: Priority,
     category: Category,
-    dueDate?: string
+    dueDate?: string,
+    recurrence?: Recurrence,
+    startTime?: string,
+    endTime?: string
   ) => {
     const newTask: Task = {
-      id: crypto.randomUUID ? crypto.randomUUID() : String(Date.now()),
+      id: typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `task_${Date.now()}`,
       text,
       completed: false,
       priority,
       category,
       created_at: new Date().toISOString(),
       due_date: dueDate || null,
+      start_time: startTime || null,
+      end_time: endTime || null,
+      recurrence: recurrence || 'none',
+      streak: 0,
     };
 
     setTasks((prev) => [newTask, ...prev]);
@@ -140,34 +265,72 @@ export default function HomePage() {
     }
   };
 
-  // Handle Toggle Complete
+  // Handle Toggle Complete with Automatic Renewal Logic
   const handleToggleComplete = async (id: string) => {
-    const updated = tasks.map((t) =>
-      t.id === id ? { ...t, completed: !t.completed } : t
-    );
-    setTasks(updated);
+    const target = tasks.find((t) => t.id === id);
+    if (!target) return;
 
-    const target = updated.find((t) => t.id === id);
+    const willBeCompleted = !target.completed;
+    const isRecurring = Boolean(target.recurrence && target.recurrence !== 'none');
 
-    // Trigger confetti if task was newly completed
-    if (target?.completed) {
-      confetti({
-        particleCount: 80,
-        spread: 70,
-        origin: { y: 0.6 },
-        colors: ['#10b981', '#34d399', '#6ee7b7', '#f59e0b', '#3b82f6'],
-      });
+    // If completing a recurring task, generate the auto-renewed next task
+    let renewedTask: Task | null = null;
+    if (willBeCompleted && isRecurring) {
+      renewedTask = createRenewedTask(target);
     }
 
+    const updatedTasks = tasks.map((t) => {
+      if (t.id === id) {
+        return {
+          ...t,
+          completed: willBeCompleted,
+          completed_at: willBeCompleted ? new Date().toISOString() : null,
+          last_renewed_at: willBeCompleted && isRecurring ? new Date().toISOString() : t.last_renewed_at,
+        };
+      }
+      return t;
+    });
+
+    const finalTasks = renewedTask ? [renewedTask, ...updatedTasks] : updatedTasks;
+    setTasks(finalTasks);
+
+    // Trigger celebrations and notifications
+    if (willBeCompleted) {
+      confetti({
+        particleCount: isRecurring ? 100 : 70,
+        spread: isRecurring ? 80 : 65,
+        origin: { y: 0.6 },
+        colors: ['#10b981', '#34d399', '#6ee7b7', '#f59e0b', '#3b82f6', '#8b5cf6'],
+      });
+
+      if (renewedTask && target.recurrence) {
+        setRenewalAlert({
+          text: target.text,
+          nextDue: renewedTask.due_date || 'next period',
+          recurrence: target.recurrence,
+          streak: renewedTask.streak || 1,
+        });
+      }
+    }
+
+    // Sync with Supabase
     const supabase = getSupabaseClient();
-    if (supabase && isConnectedToSupabase && target) {
+    if (supabase && isConnectedToSupabase) {
       try {
         await supabase
           .from('tasks')
-          .update({ completed: target.completed })
+          .update({
+            completed: willBeCompleted,
+            completed_at: willBeCompleted ? new Date().toISOString() : null,
+            last_renewed_at: willBeCompleted && isRecurring ? new Date().toISOString() : target.last_renewed_at,
+          })
           .eq('id', id);
+
+        if (renewedTask) {
+          await supabase.from('tasks').insert([renewedTask]);
+        }
       } catch (e) {
-        console.error('Error updating Supabase:', e);
+        console.error('Error syncing with Supabase:', e);
       }
     }
   };
@@ -192,7 +355,10 @@ export default function HomePage() {
     newText: string,
     priority: Priority,
     category: Category,
-    dueDate?: string
+    dueDate?: string,
+    recurrence?: Recurrence,
+    startTime?: string,
+    endTime?: string
   ) => {
     const updated = tasks.map((t) =>
       t.id === id
@@ -202,6 +368,9 @@ export default function HomePage() {
             priority,
             category,
             due_date: dueDate || null,
+            recurrence: recurrence || 'none',
+            start_time: startTime !== undefined ? (startTime || null) : t.start_time,
+            end_time: endTime !== undefined ? (endTime || null) : t.end_time,
           }
         : t
     );
@@ -218,6 +387,9 @@ export default function HomePage() {
             priority: target.priority,
             category: target.category,
             due_date: target.due_date,
+            recurrence: target.recurrence || 'none',
+            start_time: target.start_time,
+            end_time: target.end_time,
           })
           .eq('id', id);
       } catch (e) {
@@ -245,15 +417,33 @@ export default function HomePage() {
   const handleExportCSV = () => {
     if (tasks.length === 0) return;
 
-    const headers = ['ID', 'Task', 'Status', 'Priority', 'Category', 'Created At', 'Due Date'];
+    const headers = [
+      'ID',
+      'Task',
+      'Status',
+      'Priority',
+      'Category',
+      'Start Time',
+      'End Time',
+      'Duration',
+      'Recurrence',
+      'Streak',
+      'Due Date',
+      'Created At',
+    ];
     const rows = tasks.map((task) => [
       task.id,
       `"${task.text.replace(/"/g, '""')}"`,
       task.completed ? 'Completed' : 'Pending',
       task.priority,
       task.category,
-      task.created_at,
+      task.start_time || '',
+      task.end_time || '',
+      calculateDuration(task.start_time, task.end_time) || '',
+      task.recurrence || 'none',
+      task.streak || 0,
       task.due_date || '',
+      task.created_at,
     ]);
 
     const csvContent = [headers.join(','), ...rows.map((row) => row.join(','))].join('\n');
@@ -306,6 +496,8 @@ export default function HomePage() {
   const filteredTasks = tasks.filter((task) => {
     if (filter === 'completed' && !task.completed) return false;
     if (filter === 'pending' && task.completed) return false;
+    if (filter === 'recurring' && (!task.recurrence || task.recurrence === 'none')) return false;
+    if (filter === 'timed' && !task.start_time && !task.end_time) return false;
     if (categoryFilter !== 'all' && task.category !== categoryFilter) return false;
     if (priorityFilter !== 'all' && task.priority !== priorityFilter) return false;
     if (
@@ -327,11 +519,11 @@ export default function HomePage() {
               TaskFlow <Sparkles className="w-7 h-7 text-emerald-400" />
             </h1>
             <span className="bg-primary-500/10 dark:bg-primary-400/20 text-primary-600 dark:text-primary-300 border border-primary-500/20 text-xs px-2.5 py-1 rounded-full font-semibold">
-              Next.js 15 + TS
+              Next.js 15 + Recurring Tasks
             </span>
           </div>
           <p className="text-gray-500 dark:text-gray-400 text-sm mt-1">
-            Organize your productivity with Supabase integration
+            Organize daily routines, habits, and projects with automated recurrence
           </p>
         </div>
 
@@ -380,8 +572,40 @@ export default function HomePage() {
         </div>
       </header>
 
+      {/* Auto-Renewal Toast Alert */}
+      {renewalAlert && (
+        <div className="mb-6 p-4 bg-gradient-to-r from-emerald-500/10 via-primary-500/10 to-emerald-500/10 border border-emerald-500/30 rounded-2xl flex items-center justify-between shadow-sm animate-fadeIn">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-emerald-500 text-white rounded-xl shadow-xs">
+              <Repeat className="w-5 h-5" />
+            </div>
+            <div>
+              <p className="text-xs font-bold text-gray-800 dark:text-white flex items-center gap-1.5">
+                <span>Task Completed & Auto-Renewed!</span>
+                <span className="bg-orange-100 dark:bg-orange-950/40 text-orange-600 dark:text-orange-400 text-[10px] px-1.5 py-0.5 rounded-full font-bold flex items-center gap-0.5">
+                  <Flame className="w-3 h-3 fill-orange-500 text-orange-500" />
+                  {renewalAlert.streak} streak
+                </span>
+              </p>
+              <p className="text-xs text-gray-600 dark:text-gray-300 mt-0.5">
+                &ldquo;<span className="font-semibold">{renewalAlert.text}</span>&rdquo; scheduled for next cycle ({formatRecurrence(renewalAlert.recurrence)} • Due {renewalAlert.nextDue})
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={() => setRenewalAlert(null)}
+            className="p-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 rounded-lg hover:bg-gray-100 dark:hover:bg-dark-600 transition-colors"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
+
       {/* Stats Summary */}
       <TaskStats tasks={tasks} />
+
+      {/* 7-Day Completion History Data Visualization (Recharts) */}
+      <TaskCompletionChart tasks={tasks} />
 
       {/* Add Task Input Form */}
       <TaskForm onAddTask={handleAddTask} />
@@ -402,18 +626,20 @@ export default function HomePage() {
           </div>
 
           {/* Status Tabs */}
-          <div className="flex gap-1 bg-gray-100 dark:bg-dark-600/90 p-1 rounded-xl w-full sm:w-auto justify-center">
-            {(['all', 'pending', 'completed'] as FilterStatus[]).map((st) => (
+          <div className="flex gap-1 bg-gray-100 dark:bg-dark-600/90 p-1 rounded-xl w-full sm:w-auto justify-center flex-wrap">
+            {(['all', 'pending', 'completed', 'recurring', 'timed'] as FilterStatus[]).map((st) => (
               <button
                 key={st}
                 onClick={() => setFilter(st)}
-                className={`px-4 py-1.5 rounded-lg text-xs font-semibold capitalize transition-all ${
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold capitalize transition-all flex items-center gap-1 ${
                   filter === st
                     ? 'bg-primary-500 text-white shadow-xs'
                     : 'text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white'
                 }`}
               >
-                {st}
+                {st === 'recurring' && <Repeat className="w-3 h-3" />}
+                {st === 'timed' && <Clock className="w-3 h-3" />}
+                {st === 'timed' ? 'With Timing' : st}
               </button>
             ))}
           </div>
@@ -450,12 +676,13 @@ export default function HomePage() {
             <option value="low">Low Priority</option>
           </select>
 
-          {(categoryFilter !== 'all' || priorityFilter !== 'all' || searchQuery) && (
+          {(categoryFilter !== 'all' || priorityFilter !== 'all' || searchQuery || filter !== 'all') && (
             <button
               onClick={() => {
                 setCategoryFilter('all');
                 setPriorityFilter('all');
                 setSearchQuery('');
+                setFilter('all');
               }}
               className="text-primary-500 dark:text-primary-400 hover:underline text-xs font-semibold ml-auto"
             >
@@ -481,6 +708,10 @@ export default function HomePage() {
                 ? 'No completed tasks yet.'
                 : filter === 'pending'
                 ? 'All pending tasks cleared!'
+                : filter === 'recurring'
+                ? 'No recurring tasks created yet. Select Daily or Weekly when adding a task!'
+                : filter === 'timed'
+                ? 'No scheduled/timed tasks created yet. Set Start and End times in the form above!'
                 : 'Add a new task above to get started.'}
             </p>
           </div>
@@ -539,3 +770,4 @@ export default function HomePage() {
     </main>
   );
 }
+

@@ -1,6 +1,6 @@
 {
   "name": "TaskFlow - Next.js Supabase Todo App",
-  "description": "Full-stack Task Manager converted to Next.js 15 App Router with TypeScript and Supabase integration.",
+  "description": "Full-stack Task Manager converted to Next.js 15 App Router with TypeScript, Supabase integration, 7-day task completion history data visualization using Recharts, task start/end time slots, duration calculation, and recurring routines with automatic task renewal.",
   "requestFramePermissions": [],
   "majorCapabilities": [
     "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
