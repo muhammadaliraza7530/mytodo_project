@@ -388,6 +388,7 @@ export default function HomePage() {
           recurrence: 'none',
           start_time: '08:30',
           end_time: '09:00',
+          notes: 'TaskFlow supports task notes, start/end times, auto-renewal schedules, and live search.',
         },
         {
           id: '2',
@@ -401,6 +402,7 @@ export default function HomePage() {
           recurrence: 'daily',
           streak: 3,
           created_at: new Date().toISOString(),
+          notes: 'Drink 500ml water right after waking up and complete 20 min stretching.',
         },
         {
           id: '3',
@@ -496,7 +498,8 @@ export default function HomePage() {
     dueDate?: string,
     recurrence?: Recurrence,
     startTime?: string,
-    endTime?: string
+    endTime?: string,
+    notes?: string
   ) => {
     const newTask: Task = {
       id: typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `task_${Date.now()}`,
@@ -508,6 +511,7 @@ export default function HomePage() {
       due_date: dueDate || null,
       start_time: startTime || null,
       end_time: endTime || null,
+      notes: notes || null,
       recurrence: recurrence || 'none',
       streak: 0,
     };
@@ -617,7 +621,8 @@ export default function HomePage() {
     dueDate?: string,
     recurrence?: Recurrence,
     startTime?: string,
-    endTime?: string
+    endTime?: string,
+    notes?: string
   ) => {
     const updated = tasks.map((t) =>
       t.id === id
@@ -630,6 +635,7 @@ export default function HomePage() {
             recurrence: recurrence || 'none',
             start_time: startTime !== undefined ? (startTime || null) : t.start_time,
             end_time: endTime !== undefined ? (endTime || null) : t.end_time,
+            notes: notes !== undefined ? (notes || null) : t.notes,
           }
         : t
     );
@@ -649,6 +655,7 @@ export default function HomePage() {
             recurrence: target.recurrence || 'none',
             start_time: target.start_time,
             end_time: target.end_time,
+            notes: target.notes,
           })
           .eq('id', id);
       } catch (e) {
@@ -679,6 +686,7 @@ export default function HomePage() {
     const headers = [
       'ID',
       'Task',
+      'Notes',
       'Status',
       'Priority',
       'Category',
@@ -693,6 +701,7 @@ export default function HomePage() {
     const rows = tasks.map((task) => [
       task.id,
       `"${task.text.replace(/"/g, '""')}"`,
+      `"${(task.notes || '').replace(/"/g, '""')}"`,
       task.completed ? 'Completed' : 'Pending',
       task.priority,
       task.category,
@@ -761,7 +770,8 @@ export default function HomePage() {
     if (priorityFilter !== 'all' && task.priority !== priorityFilter) return false;
     if (
       searchQuery &&
-      !task.text.toLowerCase().includes(searchQuery.toLowerCase())
+      !task.text.toLowerCase().includes(searchQuery.toLowerCase()) &&
+      !(task.notes && task.notes.toLowerCase().includes(searchQuery.toLowerCase()))
     ) {
       return false;
     }
@@ -955,7 +965,7 @@ export default function HomePage() {
           <select
             value={categoryFilter}
             onChange={(e) => setCategoryFilter(e.target.value)}
-            className="px-3 py-1.5 bg-gray-50 dark:bg-dark-600/80 border border-gray-200/80 dark:border-dark-500 rounded-lg text-xs font-medium dark:text-gray-200 focus:outline-none"
+            className="px-3 py-1.5 bg-slate-50 dark:bg-dark-600/80 border border-slate-200 dark:border-dark-500 rounded-lg text-xs font-semibold text-slate-800 dark:text-gray-200 focus:outline-none focus:ring-1 focus:ring-emerald-500/40"
           >
             <option value="all">All Categories</option>
             <option value="General">General</option>
@@ -969,7 +979,7 @@ export default function HomePage() {
           <select
             value={priorityFilter}
             onChange={(e) => setPriorityFilter(e.target.value)}
-            className="px-3 py-1.5 bg-gray-50 dark:bg-dark-600/80 border border-gray-200/80 dark:border-dark-500 rounded-lg text-xs font-medium dark:text-gray-200 focus:outline-none"
+            className="px-3 py-1.5 bg-slate-50 dark:bg-dark-600/80 border border-slate-200 dark:border-dark-500 rounded-lg text-xs font-semibold text-slate-800 dark:text-gray-200 focus:outline-none focus:ring-1 focus:ring-emerald-500/40"
           >
             <option value="all">All Priorities</option>
             <option value="high">High Priority</option>
@@ -985,7 +995,7 @@ export default function HomePage() {
                 setSearchQuery('');
                 setFilter('all');
               }}
-              className="text-primary-500 dark:text-primary-400 hover:underline text-xs font-semibold ml-auto"
+              className="text-emerald-600 dark:text-primary-400 hover:underline text-xs font-semibold ml-auto"
             >
               Reset Filters
             </button>
@@ -1001,17 +1011,17 @@ export default function HomePage() {
       />
 
       {/* Task List */}
-      <div className="bg-white dark:bg-dark-700 rounded-2xl shadow-sm overflow-hidden border border-gray-100 dark:border-dark-600 transition-all">
+      <div className="bg-white dark:bg-dark-700 rounded-2xl shadow-xs overflow-hidden border border-slate-200 dark:border-dark-600 transition-all">
         {isLoading ? (
-          <div className="p-12 text-center text-gray-500 dark:text-gray-400">
-            <RefreshCw className="w-8 h-8 mx-auto mb-3 animate-spin text-primary-500" />
-            <p className="text-sm">Loading tasks...</p>
+          <div className="p-12 text-center text-slate-500 dark:text-gray-400">
+            <RefreshCw className="w-8 h-8 mx-auto mb-3 animate-spin text-emerald-600 dark:text-primary-500" />
+            <p className="text-sm font-medium">Loading tasks...</p>
           </div>
         ) : filteredTasks.length === 0 ? (
-          <div className="p-12 text-center text-gray-500 dark:text-gray-400">
-            <CheckCircle2 className="w-12 h-12 mx-auto mb-3 opacity-20 text-primary-500" />
-            <p className="text-base font-medium">No tasks found</p>
-            <p className="text-xs text-gray-400 mt-1">
+          <div className="p-12 text-center text-slate-500 dark:text-gray-400">
+            <CheckCircle2 className="w-12 h-12 mx-auto mb-3 opacity-20 text-emerald-600 dark:text-primary-500" />
+            <p className="text-base font-bold text-slate-800 dark:text-gray-200">No tasks found</p>
+            <p className="text-xs text-slate-400 dark:text-gray-400 mt-1">
               {filter === 'completed'
                 ? 'No completed tasks yet.'
                 : filter === 'pending'
@@ -1024,7 +1034,7 @@ export default function HomePage() {
             </p>
           </div>
         ) : (
-          <ul className="divide-y divide-gray-100 dark:divide-dark-600">
+          <ul className="divide-y divide-slate-100 dark:divide-dark-600">
             {filteredTasks.map((task, idx) => (
               <TaskItem
                 key={task.id}

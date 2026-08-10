@@ -13,6 +13,7 @@ export interface Task {
   due_date?: string | null;
   start_time?: string | null;
   end_time?: string | null;
+  notes?: string | null;
   recurrence?: Recurrence;
   streak?: number;
   last_renewed_at?: string | null;

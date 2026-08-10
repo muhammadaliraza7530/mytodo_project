@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Plus, Tag, Calendar, AlertCircle, ChevronDown, ChevronUp, Repeat, Sparkles, Clock, Timer, X } from 'lucide-react';
+import { Plus, Tag, Calendar, AlertCircle, ChevronDown, ChevronUp, Repeat, Sparkles, Clock, Timer, X, FileText } from 'lucide-react';
 import { Priority, Category, Recurrence } from '@/types/todo';
 import { calculateDuration } from '@/lib/timeUtils';
 
@@ -13,7 +13,8 @@ interface TaskFormProps {
     dueDate?: string,
     recurrence?: Recurrence,
     startTime?: string,
-    endTime?: string
+    endTime?: string,
+    notes?: string
   ) => void;
 }
 
@@ -32,6 +33,7 @@ export function TaskForm({ onAddTask }: TaskFormProps) {
   const [dueDate, setDueDate] = useState('');
   const [startTime, setStartTime] = useState('');
   const [endTime, setEndTime] = useState('');
+  const [notes, setNotes] = useState('');
   const [recurrence, setRecurrence] = useState<Recurrence>('none');
   const [showOptions, setShowOptions] = useState(false);
 
@@ -88,16 +90,18 @@ export function TaskForm({ onAddTask }: TaskFormProps) {
       dueDate || undefined,
       recurrence !== 'none' ? recurrence : undefined,
       startTime || undefined,
-      endTime || undefined
+      endTime || undefined,
+      notes.trim() || undefined
     );
     setText('');
     setDueDate('');
     setStartTime('');
     setEndTime('');
+    setNotes('');
     setRecurrence('none');
   };
 
-  const hasExtraConfig = recurrence !== 'none' || startTime || endTime || dueDate;
+  const hasExtraConfig = recurrence !== 'none' || startTime || endTime || dueDate || Boolean(notes.trim());
 
   return (
     <div className="bg-white dark:bg-dark-700 rounded-2xl shadow-xs hover:shadow-sm p-3.5 sm:p-5 mb-8 border border-slate-200/80 dark:border-dark-600 transition-all duration-200">
@@ -314,6 +318,20 @@ export function TaskForm({ onAddTask }: TaskFormProps) {
                   </button>
                 ))}
               </div>
+            </div>
+
+            {/* Task Notes / Details */}
+            <div>
+              <label className="text-xs text-gray-500 dark:text-gray-400 font-semibold mb-1.5 flex items-center gap-1.5">
+                <FileText className="w-3.5 h-3.5 text-primary-500" /> Task Notes & Details
+              </label>
+              <textarea
+                rows={2}
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                placeholder="Add task notes, checklist items, links, or instructions..."
+                className="w-full px-3 py-2 bg-gray-50 dark:bg-dark-600 border border-gray-200 dark:border-dark-500 rounded-lg text-xs text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-1 focus:ring-primary-500 resize-y"
+              />
             </div>
 
             {/* Category Pills & Due Date Row */}

@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Check, Edit2, Trash2, Calendar, Tag, Save, X, GripVertical, Clock, Repeat, Flame, Sparkles, Timer, Play } from 'lucide-react';
+import { Check, Edit2, Trash2, Calendar, Tag, Save, X, GripVertical, Clock, Repeat, Flame, Sparkles, Timer, Play, FileText } from 'lucide-react';
 import { Task, Priority, Category, Recurrence } from '@/types/todo';
 import { formatRecurrence, getRenewalHint } from '@/lib/recurrence';
 import { formatTimeString, calculateDuration, isTaskCurrentlyActive } from '@/lib/timeUtils';
@@ -19,7 +19,8 @@ interface TaskItemProps {
     dueDate?: string,
     recurrence?: Recurrence,
     startTime?: string,
-    endTime?: string
+    endTime?: string,
+    notes?: string
   ) => void;
   onDragStart: (e: React.DragEvent, index: number) => void;
   onDragOver: (e: React.DragEvent, index: number) => void;
@@ -47,6 +48,7 @@ export function TaskItem({
   const [editDueDate, setEditDueDate] = useState<string>(task.due_date || '');
   const [editStartTime, setEditStartTime] = useState<string>(task.start_time || '');
   const [editEndTime, setEditEndTime] = useState<string>(task.end_time || '');
+  const [editNotes, setEditNotes] = useState<string>(task.notes || '');
   const [editRecurrence, setEditRecurrence] = useState<Recurrence>(task.recurrence || 'none');
 
   const handleSave = (e: React.FormEvent) => {
@@ -61,7 +63,8 @@ export function TaskItem({
       editDueDate || undefined,
       editRecurrence !== 'none' ? editRecurrence : undefined,
       editStartTime || undefined,
-      editEndTime || undefined
+      editEndTime || undefined,
+      editNotes.trim() || undefined
     );
     setIsEditing(false);
   };
@@ -69,18 +72,18 @@ export function TaskItem({
   const getPriorityBadge = (p: Priority) => {
     switch (p) {
       case 'high':
-        return <span className="bg-red-50 dark:bg-red-900/30 text-red-700 dark:text-red-400 text-xs px-2 py-0.5 rounded-md font-semibold border border-red-200 dark:border-red-800/50">High</span>;
+        return <span className="bg-red-50 dark:bg-red-950/70 text-red-700 dark:text-red-300 text-xs px-2 py-0.5 rounded-md font-semibold border border-red-200 dark:border-red-800/70">High</span>;
       case 'medium':
-        return <span className="bg-amber-50 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 text-xs px-2 py-0.5 rounded-md font-semibold border border-amber-200 dark:border-amber-800/50">Medium</span>;
+        return <span className="bg-amber-50 dark:bg-amber-950/70 text-amber-700 dark:text-amber-300 text-xs px-2 py-0.5 rounded-md font-semibold border border-amber-200 dark:border-amber-800/70">Medium</span>;
       case 'low':
-        return <span className="bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 text-xs px-2 py-0.5 rounded-md font-semibold border border-blue-200 dark:border-blue-800/50">Low</span>;
+        return <span className="bg-blue-50 dark:bg-blue-950/70 text-blue-700 dark:text-blue-300 text-xs px-2 py-0.5 rounded-md font-semibold border border-blue-200 dark:border-blue-800/70">Low</span>;
     }
   };
 
   const getCategoryBadge = (c: Category) => {
     return (
-      <span className="bg-slate-100/80 dark:bg-dark-600 text-slate-700 dark:text-gray-300 text-xs px-2 py-0.5 rounded-md font-medium border border-slate-200/80 dark:border-dark-500 flex items-center gap-1">
-        <Tag className="w-3 h-3 text-emerald-600 dark:text-primary-500" /> {c}
+      <span className="bg-slate-100/80 dark:bg-dark-600 text-slate-700 dark:text-gray-200 text-xs px-2 py-0.5 rounded-md font-medium border border-slate-200/80 dark:border-dark-500 flex items-center gap-1">
+        <Tag className="w-3 h-3 text-emerald-600 dark:text-emerald-400" /> {c}
       </span>
     );
   };
@@ -207,6 +210,16 @@ export function TaskItem({
             )}
           </div>
 
+          <div>
+            <textarea
+              rows={2}
+              value={editNotes}
+              onChange={(e) => setEditNotes(e.target.value)}
+              placeholder="Task notes / description (optional)"
+              className="w-full px-3 py-2 bg-gray-50 dark:bg-dark-600 border border-gray-200 dark:border-dark-500 rounded-lg text-xs text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-1 focus:ring-primary-500 resize-y"
+            />
+          </div>
+
           <div className="flex justify-end gap-2">
             <button
               type="button"
@@ -224,11 +237,11 @@ export function TaskItem({
           </div>
         </form>
       ) : (
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 min-w-0 w-full">
-          <div className="flex items-start gap-3 flex-grow min-w-0">
-            {/* Drag Handle */}
+        <div className="flex items-start gap-2.5 sm:gap-3 min-w-0 w-full">
+          {/* Drag Handle & Checkbox */}
+          <div className="flex items-center gap-1.5 shrink-0 pt-0.5">
             <div
-              className="mt-1 cursor-grab active:cursor-grabbing text-gray-300 dark:text-gray-600 hover:text-primary-500 dark:hover:text-primary-400 transition-colors p-0.5"
+              className="cursor-grab active:cursor-grabbing text-slate-300 dark:text-gray-600 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors p-1"
               title="Drag to reorder task"
             >
               <GripVertical className="w-4 h-4" />
@@ -236,10 +249,10 @@ export function TaskItem({
 
             <button
               onClick={() => onToggleComplete(task.id)}
-              className={`mt-0.5 w-5 h-5 rounded-md border-2 flex items-center justify-center transition-all ${
+              className={`w-6 h-6 sm:w-5 sm:h-5 rounded-md border-2 flex items-center justify-center transition-all shrink-0 ${
                 task.completed
-                  ? 'bg-emerald-500 border-emerald-500 text-white scale-105'
-                  : 'border-gray-300 dark:border-gray-500 hover:border-emerald-500'
+                  ? 'bg-emerald-600 border-emerald-600 text-white scale-105'
+                  : 'border-slate-300 dark:border-gray-500 hover:border-emerald-600'
               }`}
               title={
                 task.completed
@@ -249,16 +262,19 @@ export function TaskItem({
                   : 'Mark as completed'
               }
             >
-              {task.completed && <Check className="w-3.5 h-3.5 stroke-[3]" />}
+              {task.completed && <Check className="w-4 h-4 sm:w-3.5 sm:h-3.5 stroke-[3]" />}
             </button>
+          </div>
 
-            <div className="flex-grow space-y-1.5 min-w-0">
-              <div className="flex items-center gap-2 flex-wrap min-w-0">
+          <div className="flex-grow space-y-2 min-w-0">
+            {/* Title row with Action buttons directly inline at top-right */}
+            <div className="flex items-start justify-between gap-2 min-w-0">
+              <div className="flex items-center gap-1.5 flex-wrap min-w-0">
                 <p
-                  className={`text-sm font-semibold leading-snug transition-all break-words min-w-0 ${
+                  className={`text-sm sm:text-base font-semibold leading-snug transition-all break-words min-w-0 ${
                     task.completed
-                      ? 'line-through text-gray-400 dark:text-gray-500'
-                      : 'text-gray-800 dark:text-gray-100'
+                      ? 'line-through text-slate-400 dark:text-gray-500'
+                      : 'text-slate-800 dark:text-gray-100'
                   }`}
                 >
                   {task.text}
@@ -272,103 +288,117 @@ export function TaskItem({
 
                 {isRecurring && !task.completed && (
                   <span
-                    className="bg-primary-50 dark:bg-primary-950/40 text-primary-700 dark:text-primary-300 text-[11px] px-2 py-0.5 rounded-full font-semibold border border-primary-200/80 dark:border-primary-800/50 flex items-center gap-1"
+                    className="bg-emerald-50 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-300 text-[11px] px-2 py-0.5 rounded-full font-semibold border border-emerald-200 dark:border-emerald-800/50 flex items-center gap-1"
                     title={getRenewalHint(task.recurrence, task.due_date)}
                   >
-                    <Repeat className="w-3 h-3 text-primary-500" />
+                    <Repeat className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
                     {formatRecurrence(task.recurrence)}
                   </span>
                 )}
 
                 {task.streak !== undefined && task.streak > 0 && (
                   <span
-                    className="bg-orange-50 dark:bg-orange-950/40 text-orange-600 dark:text-orange-400 text-[11px] px-2 py-0.5 rounded-full font-bold border border-orange-200 dark:border-orange-800/50 flex items-center gap-1 shadow-2xs"
+                    className="bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-400 text-[11px] px-2 py-0.5 rounded-full font-bold border border-amber-200 dark:border-amber-800/50 flex items-center gap-1 shadow-2xs"
                     title={`Completed ${task.streak} time${task.streak > 1 ? 's' : ''} consecutively!`}
                   >
-                    <Flame className="w-3 h-3 text-orange-500 fill-orange-500" />
+                    <Flame className="w-3 h-3 text-amber-500 fill-amber-500" />
                     {task.streak} streak
                   </span>
                 )}
               </div>
 
-              <div className="flex flex-wrap items-center gap-2">
-                {getPriorityBadge(task.priority)}
-                {getCategoryBadge(task.category)}
-
-                {/* Timing Badge (Start & End Time) */}
-                {(task.start_time || task.end_time) && (
-                  <span
-                    className={`text-[11px] flex items-center gap-1.5 px-2.5 py-0.5 rounded-md border font-medium transition-colors ${
-                      isCurrentlyActive
-                        ? 'bg-primary-100 dark:bg-primary-950/50 text-primary-700 dark:text-primary-300 border-primary-300 dark:border-primary-700 font-semibold'
-                        : task.completed
-                        ? 'text-gray-400 bg-gray-50 dark:bg-dark-800/50 border-gray-200 dark:border-dark-600'
-                        : 'bg-primary-50/80 dark:bg-primary-950/30 text-primary-700 dark:text-primary-300 border-primary-200/70 dark:border-primary-800/40'
-                    }`}
-                  >
-                    <Clock className="w-3 h-3 text-primary-500" />
-                    {task.start_time && task.end_time ? (
-                      <>
-                        <span>
-                          {formatTimeString(task.start_time)} – {formatTimeString(task.end_time)}
-                        </span>
-                        {duration && (
-                          <span className="text-[10px] opacity-75 font-normal flex items-center gap-0.5">
-                            ({duration})
-                          </span>
-                        )}
-                      </>
-                    ) : task.start_time ? (
-                      <span>From {formatTimeString(task.start_time)}</span>
-                    ) : (
-                      <span>Until {formatTimeString(task.end_time)}</span>
-                    )}
-                  </span>
-                )}
-
-                {task.due_date && (
-                  <span
-                    className={`text-[11px] flex items-center gap-1 px-2 py-0.5 rounded-md border font-medium transition-colors ${
-                      isDueSoon(task.due_date, task.completed)
-                        ? 'bg-amber-100 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border-amber-300 dark:border-amber-700/60 font-semibold'
-                        : 'text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-dark-800 border-gray-200/80 dark:border-dark-600'
-                    }`}
-                  >
-                    <Calendar className="w-3 h-3 text-gray-400" />
-                    Due: {task.due_date}
-                  </span>
-                )}
-
-                {isDueSoon(task.due_date, task.completed) && (
-                  <span className="bg-orange-100 dark:bg-orange-950/40 text-orange-700 dark:text-orange-300 text-[11px] px-2 py-0.5 rounded-md font-semibold border border-orange-300 dark:border-orange-800/60 flex items-center gap-1 animate-pulse">
-                    <Timer className="w-3 h-3 text-orange-500" /> Due soon
-                  </span>
-                )}
-
-                {task.completed && isRecurring && (
-                  <span className="text-[11px] text-emerald-600 dark:text-emerald-400 flex items-center gap-1 bg-emerald-50 dark:bg-emerald-950/30 px-2 py-0.5 rounded-md border border-emerald-200/60 dark:border-emerald-800/40 font-medium">
-                    <Sparkles className="w-3 h-3 text-emerald-500" /> Cycle completed & renewed
-                  </span>
-                )}
+              {/* Action Buttons */}
+              <div className="flex items-center gap-1 shrink-0 opacity-90 group-hover:opacity-100 transition-opacity self-start">
+                <button
+                  onClick={() => setIsEditing(true)}
+                  className="p-2 sm:p-1.5 text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 rounded-lg hover:bg-slate-100 dark:hover:bg-dark-600 transition-colors"
+                  title="Edit Task & Timing"
+                >
+                  <Edit2 className="w-4 h-4 sm:w-3.5 sm:h-3.5" />
+                </button>
+                <button
+                  onClick={() => onDeleteTask(task.id)}
+                  className="p-2 sm:p-1.5 text-slate-400 hover:text-red-600 dark:hover:text-red-400 rounded-lg hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors"
+                  title="Delete Task"
+                >
+                  <Trash2 className="w-4 h-4 sm:w-3.5 sm:h-3.5" />
+                </button>
               </div>
             </div>
-          </div>
 
-          <div className="flex items-center gap-1 self-end sm:self-center opacity-90 group-hover:opacity-100 transition-opacity">
-            <button
-              onClick={() => setIsEditing(true)}
-              className="p-1.5 text-gray-400 hover:text-primary-500 dark:hover:text-primary-400 rounded-lg hover:bg-gray-100 dark:hover:bg-dark-600 transition-colors"
-              title="Edit Task & Timing"
-            >
-              <Edit2 className="w-3.5 h-3.5" />
-            </button>
-            <button
-              onClick={() => onDeleteTask(task.id)}
-              className="p-1.5 text-gray-400 hover:text-red-500 dark:hover:text-red-400 rounded-lg hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors"
-              title="Delete Task"
-            >
-              <Trash2 className="w-3.5 h-3.5" />
-            </button>
+            {/* Badges Row */}
+            <div className="flex flex-wrap items-center gap-1.5 text-xs">
+              {getPriorityBadge(task.priority)}
+              {getCategoryBadge(task.category)}
+
+              {/* Timing Badge (Start & End Time) */}
+              {(task.start_time || task.end_time) && (
+                <span
+                  className={`text-[11px] flex items-center gap-1.5 px-2.5 py-0.5 rounded-md border font-semibold transition-colors ${
+                    isCurrentlyActive
+                      ? 'bg-emerald-100 dark:bg-emerald-950/80 text-emerald-900 dark:text-emerald-100 border-emerald-300 dark:border-emerald-600 font-bold'
+                      : task.completed
+                      ? 'text-slate-400 dark:text-gray-400 bg-slate-50 dark:bg-dark-800/50 border-slate-200 dark:border-dark-600'
+                      : 'bg-emerald-50 dark:bg-emerald-900/40 text-emerald-800 dark:text-emerald-200 border-emerald-200 dark:border-emerald-700/60'
+                  }`}
+                >
+                  <Clock className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-300 shrink-0" />
+                  {task.start_time && task.end_time ? (
+                    <>
+                      <span>
+                        {formatTimeString(task.start_time)} – {formatTimeString(task.end_time)}
+                      </span>
+                      {duration && (
+                        <span className="text-[10px] text-emerald-700/80 dark:text-emerald-300/90 font-medium">
+                          ({duration})
+                        </span>
+                      )}
+                    </>
+                  ) : task.start_time ? (
+                    <span>From {formatTimeString(task.start_time)}</span>
+                  ) : (
+                    <span>Until {formatTimeString(task.end_time)}</span>
+                  )}
+                </span>
+              )}
+
+              {task.due_date && (
+                <span
+                  className={`text-[11px] flex items-center gap-1 px-2 py-0.5 rounded-md border font-medium transition-colors ${
+                    isDueSoon(task.due_date, task.completed)
+                      ? 'bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 border-amber-300 dark:border-amber-700/60 font-semibold'
+                      : 'text-slate-500 dark:text-gray-400 bg-slate-50 dark:bg-dark-800 border-slate-200 dark:border-dark-600'
+                  }`}
+                >
+                  <Calendar className="w-3 h-3 text-slate-400" />
+                  Due: {task.due_date}
+                </span>
+              )}
+
+              {isDueSoon(task.due_date, task.completed) && (
+                <span className="bg-amber-100 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 text-[11px] px-2 py-0.5 rounded-md font-semibold border border-amber-300 dark:border-amber-800/60 flex items-center gap-1 animate-pulse">
+                  <Timer className="w-3 h-3 text-amber-600" /> Due soon
+                </span>
+              )}
+
+              {task.completed && isRecurring && (
+                <span className="text-[11px] text-emerald-700 dark:text-emerald-300 flex items-center gap-1 bg-emerald-50 dark:bg-emerald-950/30 px-2 py-0.5 rounded-md border border-emerald-200 dark:border-emerald-800/40 font-medium">
+                  <Sparkles className="w-3 h-3 text-emerald-500" /> Cycle completed & renewed
+                </span>
+              )}
+            </div>
+
+            {/* Task Notes Display */}
+            {task.notes && (
+              <div className="mt-2.5 p-2.5 rounded-xl bg-slate-50/90 dark:bg-dark-800/80 border border-slate-200/80 dark:border-dark-600/80 text-xs text-slate-700 dark:text-gray-200 flex items-start gap-2">
+                <FileText className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" />
+                <div className="min-w-0 flex-1">
+                  <p className="whitespace-pre-wrap break-words leading-relaxed text-[11px] sm:text-xs text-slate-700 dark:text-gray-300">
+                    {task.notes}
+                  </p>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}

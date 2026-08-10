@@ -107,6 +107,7 @@ export function createRenewedTask(task: Task): Task {
     due_date: nextDueDate,
     start_time: task.start_time || null,
     end_time: task.end_time || null,
+    notes: task.notes || null,
     created_at: new Date().toISOString(),
     last_renewed_at: new Date().toISOString(),
   };
